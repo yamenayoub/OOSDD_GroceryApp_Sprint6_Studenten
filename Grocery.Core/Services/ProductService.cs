@@ -1,6 +1,7 @@
 ﻿using Grocery.Core.Interfaces.Repositories;
 using Grocery.Core.Interfaces.Services;
 using Grocery.Core.Models;
+using System.Diagnostics;
 
 namespace Grocery.Core.Services
 {
@@ -20,7 +21,13 @@ namespace Grocery.Core.Services
 
         public Product Add(Product item)
         {
-            throw new NotImplementedException();
+            if (item is null)
+            {
+                throw new ArgumentNullException(nameof(item), "Product item cannot be null.");
+            }
+
+            var addedProduct = _productRepository.Add(item);
+            return addedProduct;
         }
 
         public Product? Delete(Product item)

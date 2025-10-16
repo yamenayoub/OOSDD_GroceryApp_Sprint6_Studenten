@@ -2,6 +2,7 @@
 using Grocery.Core.Interfaces.Repositories;
 using Grocery.Core.Interfaces.Services;
 using Grocery.Core.Models;
+using System.Diagnostics;
 
 namespace Grocery.Core.Services
 {
@@ -23,6 +24,7 @@ namespace Grocery.Core.Services
         {
             foreach (ProductCategory pc in _productCategoriesRepository.GetAll())
             {
+                Debug.WriteLine($"Productid in category: {pc.ProductId}");
                 pc.Product = _productRepository.Get(pc.ProductId) ?? new(0, "", 0);
                 pc.Category = _categoryRepository.Get(pc.CategoryId) ?? new(0, "");
             }

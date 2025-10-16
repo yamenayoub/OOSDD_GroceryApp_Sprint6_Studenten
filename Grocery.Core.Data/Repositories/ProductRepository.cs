@@ -10,15 +10,8 @@ namespace Grocery.Core.Data.Repositories
 {
     public class ProductRepository : DatabaseConnection ,IProductRepository
     {
-        private readonly List<Product> products;
         public ProductRepository()
         {
-            //products = [
-            //    new Product(1, "Melk", 300, new DateOnly(2025, 9, 25), 0.95m),
-            //    new Product(2, "Kaas", 100, new DateOnly(2025, 9, 30), 7.98m),
-            //    new Product(3, "Brood", 400, new DateOnly(2025, 9, 12), 2.19m),
-            //    new Product(4, "Cornflakes", 0, new DateOnly(2025, 12, 31), 1.48m)];
-
             CreateTable("CREATE TABLE IF NOT EXISTS Products (Id INTEGER PRIMARY KEY, Name TEXT, Stock INTEGER, ShelfLife DATE, Price REAL)");
 
             List<string> listInsertQuries = new List<string>
@@ -31,52 +24,99 @@ namespace Grocery.Core.Data.Repositories
 
             InsertMultipleWithTransaction(listInsertQuries);
         }
+        
         public List<Product> GetAll()
         {
             var products = new List<Product>();
-            using (SqliteCommand command = new ("SELECT Id, Name, Stock, ShelfLife, Price FROM Products;", Connection))
+            
+            try
             {
-                var results = command.ExecuteReader();
-
-
-                while (results.Read())
+                OpenConnection();
+                using (SqliteCommand command = new ("SELECT Id, Name, Stock, ShelfLife, Price FROM Products;", Connection))
                 {
-                    int id = results.GetInt32(0);
-                    string name = results.GetString(1);
-                    int stock = results.GetInt32(2);
-                    DateOnly shelfLife = DateOnly.FromDateTime(results.GetDateTime(3));
-                    decimal price = results.GetDecimal(4);
-                    products.Add(new Product(id, name, stock, shelfLife, price));
-                    Console.WriteLine(results);
+                    var results = command.ExecuteReader();
+
+                    while (results.Read())
+                    {
+                        int id = results.GetInt32(0);
+                        string name = results.GetString(1);
+                        int stock = results.GetInt32(2);
+                        DateOnly shelfLife = DateOnly.FromDateTime(results.GetDateTime(3));
+                        decimal price = results.GetDecimal(4);
+                        products.Add(new Product(id, name, stock, shelfLife, price));
+                        Console.WriteLine(results);
+                    }
                 }
             }
+            finally
+            {
+                CloseConnection();
+            }
+            
             return products;
         }
 
         public Product? Get(int id)
         {
-            using (SqliteCommand command = new ("SELECT Id, Name, Stock, ShelfLife, Price FROM Products WHERE Id = @Id;", Connection))
+            try
             {
-                command.Parameters.AddWithValue("Id", id);
-                var reader = command.ExecuteReader();
-                Debug.WriteLine($"Reader do have this information: {reader}");
-                if (!reader.Read())
+                OpenConnection();
+                using (SqliteCommand command = new ("SELECT Id, Name, Stock, ShelfLife, Price FROM Products WHERE Id = @Id;", Connection))
                 {
-                    return null;
-                }
+                    command.Parameters.AddWithValue("Id", id);
+                    var reader = command.ExecuteReader();
+                    if (!reader.Read())
+                    {
+                        return null;
+                    }
 
-                int Id = reader.GetInt32(0);
-                string Name = reader.GetString(1);
-                int stock = reader.GetInt32(2);
-                DateOnly shelfLife = DateOnly.Parse(reader.GetString(3));
-                decimal price = reader.GetDecimal(4);
-                return new Product(Id, Name, stock, shelfLife, price);
+                    int Id = reader.GetInt32(0);
+                    string Name = reader.GetString(1);
+                    int stock = reader.GetInt32(2);
+                    DateOnly shelfLife = DateOnly.Parse(reader.GetString(3));
+                    decimal price = reader.GetDecimal(4);
+                    return new Product(Id, Name, stock, shelfLife, price);
+                }
+            }
+            finally
+            {
+                CloseConnection();
             }
         }
 
         public Product Add(Product item)
         {
-            throw new NotImplementedException();
+            if (item is null)
+            {
+                throw new ArgumentNullException(nameof(item), "Product item cannot be null.");
+            }
+
+            int newId;
+            string insertQuery = @"
+                INSERT INTO Products (Name, Stock, ShelfLife, Price) 
+                VALUES (@Name, @Stock, @ShelfLife, @Price);
+                SELECT last_insert_rowid();";
+
+            try
+            {
+                OpenConnection();
+                using (SqliteCommand command = new(insertQuery, Connection))
+                {
+                    command.Parameters.AddWithValue("@Name", item.Name);
+                    command.Parameters.AddWithValue("@Stock", item.Stock);
+                    command.Parameters.AddWithValue("@ShelfLife", item.ShelfLife.ToString("yyyy-MM-dd"));
+                    command.Parameters.AddWithValue("@Price", item.Price);
+
+                    var result = command.ExecuteScalar();
+                    newId = Convert.ToInt32(result);
+                }
+            }
+            finally
+            {
+                CloseConnection();
+            }
+
+            return new Product(newId, item.Name, item.Stock, item.ShelfLife, item.Price);
         }
 
         public Product? Delete(Product item)
@@ -86,15 +126,23 @@ namespace Grocery.Core.Data.Repositories
 
         public Product? Update(Product item)
         {
-            using (SqliteCommand command = new ("UPDATE Products SET Name = @Name, Stock = @Stock, ShelfLife = @ShelfLife, Price = @Price WHERE Id = @Id", Connection))
+            try
             {
-                command.Parameters.AddWithValue("@Id", item.Id);
-                command.Parameters.AddWithValue("@Name", item.Name);
-                command.Parameters.AddWithValue("@Stock", item.Stock);
-                command.Parameters.AddWithValue("@ShelfLife", item.ShelfLife.ToString("yyyy-MM-dd"));
-                command.Parameters.AddWithValue("@Price", item.Price);
-                if (command.ExecuteNonQuery() == 0) return null;
-                return item;
+                OpenConnection();
+                using (SqliteCommand command = new ("UPDATE Products SET Name = @Name, Stock = @Stock, ShelfLife = @ShelfLife, Price = @Price WHERE Id = @Id", Connection))
+                {
+                    command.Parameters.AddWithValue("@Id", item.Id);
+                    command.Parameters.AddWithValue("@Name", item.Name);
+                    command.Parameters.AddWithValue("@Stock", item.Stock);
+                    command.Parameters.AddWithValue("@ShelfLife", item.ShelfLife.ToString("yyyy-MM-dd"));
+                    command.Parameters.AddWithValue("@Price", item.Price);
+                    if (command.ExecuteNonQuery() == 0) return null;
+                    return item;
+                }
+            }
+            finally
+            {
+                CloseConnection();
             }
         }
     }

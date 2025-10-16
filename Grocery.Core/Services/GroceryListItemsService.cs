@@ -1,6 +1,7 @@
 ﻿using Grocery.Core.Interfaces.Repositories;
 using Grocery.Core.Interfaces.Services;
 using Grocery.Core.Models;
+using System.Diagnostics;
 
 namespace Grocery.Core.Services
 {
@@ -59,19 +60,31 @@ namespace Grocery.Core.Services
 
         public List<BestSellingProducts> GetBestSellingProducts(int topX = 5)
         {
-            Dictionary<Product, int> productCount = [];
+            Dictionary<int, (Product Product, int Count)> productCount = [];
+            
             GetAll().ForEach(g =>
             {
-                if (productCount.ContainsKey(g.Product)) productCount[g.Product] += g.Amount;
-                else productCount[g.Product] = 1;
+                if (productCount.ContainsKey(g.ProductId))
+                {
+                    var existing = productCount[g.ProductId];
+                    productCount[g.ProductId] = (existing.Product, existing.Count + g.Amount);
+                }
+                else
+                {
+                    productCount[g.ProductId] = (g.Product, g.Amount);
+                }
             });
-            var products = (from entry in productCount orderby entry.Value descending select entry).Take(topX);
+            
+            var products = productCount.Values
+                .OrderByDescending(p => p.Count)
+                .Take(topX);
+            
             List<BestSellingProducts> bestProducts = [];
             int ranking = 0;
             foreach (var p in products)
             {
                 ranking++;
-                bestProducts.Add(new(p.Key.Id, p.Key.Name, p.Key.Stock, p.Value, ranking));
+                bestProducts.Add(new(p.Product.Id, p.Product.Name, p.Product.Stock, p.Count, ranking));
             }
             return bestProducts;
         }

@@ -63,11 +63,15 @@ namespace Grocery.App.ViewModels
         {
             if (product == null) return;
             GroceryListItem item = new(0, GroceryList.Id, product.Id, 1);
-            _groceryListItemsService.Add(item);
+            var addedItem = _groceryListItemsService.Add(item);
+            
             product.Stock--;
             _productService.Update(product);
             AvailableProducts.Remove(product);
-            OnGroceryListChanged(GroceryList);
+            
+            // Voeg het item direct toe met het juiste product
+            addedItem.Product = product;
+            MyGroceryListItems.Add(addedItem);
         }
 
         [RelayCommand]
@@ -103,7 +107,6 @@ namespace Grocery.App.ViewModels
             _groceryListItemsService.Update(item);
             item.Product.Stock--;
             _productService.Update(item.Product);
-            OnGroceryListChanged(GroceryList);
         }
 
         [RelayCommand]
@@ -116,7 +119,6 @@ namespace Grocery.App.ViewModels
             _groceryListItemsService.Update(item);
             item.Product.Stock++;
             _productService.Update(item.Product);
-            OnGroceryListChanged(GroceryList);
         }
     }
 }
